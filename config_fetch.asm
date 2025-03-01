@@ -17,6 +17,8 @@ section .data
 section .bss
     config_text resb cons_config_bytes ; Espacio para almacenar el texto leído
                    ;147-n 149-a 154-max
+    config_var 	;variable resultante de forma:
+	       	;[n_apro,n_repo,grupo_nota,escala,orden]
 
 ;-------------------Segmento de codigo---------------------
 ;Comienzo de la ejecución del programa
