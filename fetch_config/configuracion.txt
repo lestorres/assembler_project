@@ -1,5 +1,5 @@
-Nota de aprobación: 7
-Nota de Reposición: 100
-Tamaño de los grupos de notas: 100
+Nota de aprobación: 80
+Nota de Reposición: 18
+Tamaño de los grupos de notas: 10
 Escala del gráfico: 70
 Ordenamiento: alfabético
