@@ -1,4 +1,4 @@
-Nota de aprobación: numerico
+Nota de aprobación: 7
 Nota de Reposición: 100
 Tamaño de los grupos de notas: 100
 Escala del gráfico: 70
