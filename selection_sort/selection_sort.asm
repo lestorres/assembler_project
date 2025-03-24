@@ -22,8 +22,8 @@ section .data
 	msg_final_programa db "---Programa Terminado---", 0xA, 0
 
 
-	;Variable de busqueda para la notas en ordenamiento
-	nota_buscada db "nota: "
+    mensaje db  "	Imprimiendo...", 0xA  ; Mensaje de depuración
+
 
 ; Sección de datos no inicializados
 section .bss
@@ -41,18 +41,13 @@ section .bss
 
 	lista_estudiantes resb 2400
 
-;Variables del ordenamiento por notas
+;Variables para estructurar los datos:
 	estudiantes resb 2048  	;Espacio para las lineas de estudiantes 
-	notas resb 12	       	;Espacio para la nota como entero
-	lineas_count resb 1	;Cuenta lineas
-	nota_str resb 4		;espacio para nota como string
-	temp_line resb 128	;Espacio temporal de 1 estudiante+nota
+
+	contador_lineas resb 1	;Cuenta lineas
+	contador_bytes resw 1   ; Cuenta bytes
+	arreglo_dir_datos resw 120 ; Mapeo de dir. datos
 	
-	student_struc resb 2048 ;Estructura para almacenar estudiantes+notas
-	idx resb 1		;Indice de la linea
-	line_offset resb 4	;Puntero temporal para iterar en el arreglo estudiantes
-
-
 ; Sección de código
 section .text
     	global _start
@@ -108,7 +103,6 @@ fetch_escala:
     	mov eax, [rsi+114]      ; Guardar escala
     	mov [escala], eax
 
-fetch_orden:
     	mov al, [rsi+133]      ; Guardar orden
     	mov [orden],al
 
@@ -155,6 +149,7 @@ lectura_lista:
     	syscall
 	
 	print msg_lista_des_open ; imprime mensaje guía   
+	print mensaje
     	print leer_texto_datos	 ;imprime la lista de datos desordenada
 
 cerrar_archivo_datos:
@@ -162,23 +157,61 @@ cerrar_archivo_datos:
     	mov rax, SYS_CLOSE   ; Llamada para cerrar el archivo
     	syscall
 
-;Estructurar lista
+
+; Estructurar lista
+;----------------------------------------------
+estructurar_lista:
+    mov rsi, leer_texto_datos  ; Cargar  los datos
+    mov rdi, arreglo_dir_datos ; Cargar el arreglo de direcciones
+
+bucle_lectura_byte:
+    	mov al, byte [rsi]      ; Cargar el byte actual de los datos
+    	cmp al, 0x00            ; ¿Es el final de los datos? (fin de archivo)
+    	je ordenamiento          ; Si es fin de archivo, ordenamiento
+
+    	cmp al, 0xA                 ; ¿salto de línea (0xA)?
+    	je guardar_direccion        ; Si es salto de línea, guardar la dirección
+
+    	inc byte [contador_bytes]   ; Incrementar el contador de bytes
+    	inc rsi                     ; Avanzar al siguiente byte
+    	jmp bucle_lectura_byte      ; Repetir el ciclo
+
+guardar_direccion:
+    ; Guardar la dirección al final de la línea
+	mov rbx, rsi   ; Copiar la dirección actual (al final de la línea)
+    	dec rbx        ; Retroceder una posición (antes del salto de línea)
+    	mov [rdi], rbx ; Almacenar la dirección de finalización en el arreglo
+    	inc rdi        ; Avanzar al siguiente espacio del arreglo
+
+    ; Incrementar el contador de líneas
+    	inc byte [contador_lineas]  ; Incrementar el contador de líneas
+
+    ; Avanzar al siguiente byte (salto de línea)
+   	inc rsi
+
+    	jmp bucle_lectura_byte      ; Repetir el ciclo
 
 
+;-------------Ordenamiento-------------
 
 
-
-
-
-
-
-;-------------Ordenamiento--------------
 ordenamiento:
-    	print msg_lista_orden_open    
+
+print msg_lista_orden_open    
+
+print mensaje
 
 
-histograma:
+ordenamiento_numerico:
+
+
+
+
+
+
 ;---histrograma----
+;-------------------------------------------------------
+histograma:
 ;    	print msg_histo_open
 
 
