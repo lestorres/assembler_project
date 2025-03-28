@@ -18,12 +18,14 @@ section .data
     msg_lista_orden_open     db "---Inicio de la lista ordenada---", 0xA, 0
     msg_final_programa       db "---Programa Terminado---", 0xA, 0
 
-    mensaje                  db 0xA,"	Imprimiendo...", 0xA
+    mensaje                  db "             Imprimiendo...", 0xA, 0
+
+    nl db 0xA, 0  ; Salto de línea para ordenar
 
 ; Sección de datos no inicializados
 section .bss
-    leer_texto_config resb 154       ; Buffer para configuracion.txt   
-    leer_texto_datos  resb 2048       ; Buffer para datos.txt   
+    leer_texto_config resb 154       ; leer la configuracion configuracion.txt   
+    leer_texto_datos  resb 2048       ; Leer datos para datos.txt   
 
     ; Variables de recuperación de configuración
     nota_apro resb 3
@@ -32,13 +34,11 @@ section .bss
     escala    resb 3
     orden     resb 1
 
-    ; Espacio para almacenar punteros a cada línea (8 bytes por puntero)
-    arreglo_dir_datos resq 120
+    ; array de los punteros a cada línea (8 bytes por puntero)
+    arreglo_dir_datos resq 120 
+    contador_bytes    resw 1          ; Almacena cantidad de bytes leídos
 
     ; Variables para estructurar los datos:
-    estudiantes       resb 2048       ; Espacio para las líneas de estudiantes 
-    contador_lineas   resb 1          ; Cuenta líneas
-    contador_bytes    resw 1          ; Almacena cantidad de bytes leídos
 
 ; Sección de código
 section .text
@@ -47,7 +47,7 @@ section .text
 _start:
     print msg_inicio_programa
 
-    ;---------------------Leer Configuración------------------
+;---------------------Leer Configuración------------------
 fetch_configuracion:
     mov rax, SYS_OPEN
     mov rdi, archivo_config
@@ -71,7 +71,7 @@ lectura_texto_config:
 
     mov rsi, leer_texto_config
 
-    ;-----------Recuperar datos de configuración--------------------
+;-----------Recuperar losw datos de configuración--------------------
 fetch_nota_apro: 
     mov eax, [rsi+22]      ; Nota de aprobación
     mov [nota_apro], eax
@@ -91,7 +91,8 @@ fetch_escala:
     mov al, [rsi+133]      ; Ordenamiento
     mov [orden], al
 
-    ;------------------Mostrar la configuración------------------------
+;------------------imprimir la configuración------------------------
+
     print msg_config_open
 impresion_config:
     mov rax, SYS_WRITE
@@ -105,7 +106,7 @@ cerrar_archivo_config:
     mov rax, SYS_CLOSE
     syscall
 
-;------------------Leer lista de estudiantes----------------------------
+;------------------Leer lo datos de lista de estudiantes-----------------------
 fetch_lista_de_datos:
     mov rax, SYS_OPEN
     mov rdi, archivo_datos
@@ -116,7 +117,7 @@ fetch_lista_de_datos:
     test rax, rax
     js salida_error
 
-    mov rbx, rax  ; Descriptor del archivo
+    mov rbx, rax  ; carga el descriptor del archivo
 
     ; Leer el contenido completo del archivo
 lectura_lista:
@@ -126,13 +127,14 @@ lectura_lista:
     mov rdx, 2048
     syscall
 
-    ; RAX contiene el número de bytes leídos. Guárdalo en 'contador_bytes'
+    ; Guardar la cantidad de bytes leídos en 'contador_bytes'
     mov [contador_bytes], ax
 
-    ; Agregar terminador nulo al final del buffer
+    ; Agregar terminador nulo al final 
     mov rcx, rax
     mov byte [leer_texto_datos + rcx], 0
-
+    
+    print nl
     print msg_lista_des_open
     print mensaje
     print leer_texto_datos
@@ -141,10 +143,12 @@ lectura_lista:
     mov rax, SYS_CLOSE
     syscall
 
-;------------------Ordenamiento y listado-------------------------------
+
 ordenamiento:
     print msg_lista_orden_open
-
+    print mensaje
+;------------------estructurar_datos-------------------------------
+Estructurar_datos:
     ;-- Separar las líneas y almacenar sus direcciones en arreglo_dir_datos --
     mov rsi, leer_texto_datos       ; Puntero al inicio del buffer
     lea rdi, [arreglo_dir_datos]    ; Array para guardar punteros
@@ -153,27 +157,24 @@ ordenamiento:
     ; Calcular la dirección final del buffer usando 'contador_bytes'
     mov rdx, leer_texto_datos       ; rdx = inicio del buffer
     movzx r8, word [contador_bytes]  ; r8 = cantidad de bytes leídos
-    add rdx, r8                      ; rdx = dirección final del buffer
+    add rdx, r8                     ; rdx = dirección final del buffer
 
-Estructurar_linea:
-parse_loop:
-    cmp rsi, rdx                     ; Si ya se llegó al final, termina
-    jae sort_list
+separa_lineas_loop:
+    cmp rsi, rdx                    ; Si se alcanzó el final, salir
+    jae bubble_sort  
 
-    ; Guardar dirección de inicio de la línea actual
-    
+    ; Guardar la dirección de inicio de la línea actual
     mov qword [arreglo_dir_datos + rcx*8], rsi
     inc rcx
 
-    ; Buscar fin de línea: detecta LF (0x0A) o CR (0x0D)
+    ; Buscar el final de la línea (LF o CR)
 find_newline:
     cmp rsi, rdx
-    jae parse_loop
+    jae separa_lineas_loop
 
     mov al, [rsi]
     cmp al, 0x0A
     je found_newline
-
     cmp al, 0x0D
     je found_newline
 
@@ -181,21 +182,23 @@ find_newline:
     jmp find_newline
 
 found_newline:
-    ; Reemplazar terminador de línea por nulo (un cero) y avanzar el puntero
+    ; Poner un caracter 0x00 de fin de línea por nulo y avanzar
     mov byte [rsi], 0
     inc rsi
-    jmp parse_loop
+    jmp separa_lineas_loop
 
-ordenar_lineas:
 
-sort_list:
-    mov r8, rcx  ; Número total de líneas en r8
-    mov r9, 0     ; Índice i
+
+bubble_sort:
+;-----------------Inicio del bubblesort---------------
+
+    mov r8, rcx     ; Número total de líneas en r8
+    mov r9, 0       ; Índice i
 
 outer_loop:
     cmp r9, r8
     jge print_sorted_list
-    mov r10, 0    ; Índice j
+    mov r10, 0      ; Índice j
 
 inner_loop:
     mov r11, r8
@@ -204,15 +207,15 @@ inner_loop:
     jge next_outer
 
     ; Cargar punteros de dos líneas consecutivas
-    mov rax, [arreglo_dir_datos + r10*8]       ; Línea actual
-    mov rbx, [arreglo_dir_datos + (r10+1)*8]   ; Siguiente línea
+    mov rax, [arreglo_dir_datos + r10*8]      ; Línea actual
+    mov rbx, [arreglo_dir_datos + (r10+1)*8]    ; Siguiente línea
 
     ; Extraer nota de la línea actual
     push r8       ; Preservar r8
     push rcx      ; Preservar contador de líneas
 
     mov r12, rax
-    call find_end_of_string    ; r12 apunta al carácter nulo final
+    call find_end_of_string    ; r12 apunta al fin de la cadena
     mov r13, r12
     sub r13, 3                 ; R13 apunta a los 3 dígitos de la nota
     call ascii_to_int          ; Resultado en r15 (nota actual)
@@ -220,7 +223,7 @@ inner_loop:
 
     ; Extraer nota de la siguiente línea
     mov r12, rbx
-    call find_end_of_string    ; r12 = fin de la segunda línea
+    call find_end_of_string
     mov r13, r12
     sub r13, 3
     call ascii_to_int          ; Resultado en r15 (nota siguiente)
@@ -228,7 +231,8 @@ inner_loop:
     ; Comparar notas (orden ascendente)
     cmp r14, r15
     jle no_swap
-    ; Si la nota de la línea actual (r14) es mayor a (r15), intercambiar punteros
+
+    ; Intercambiar punteros si la nota actual es mayor que la siguiente
     mov rdx, [arreglo_dir_datos + r10*8]
     mov [arreglo_dir_datos + r10*8], rbx
     mov [arreglo_dir_datos + (r10+1)*8], rdx
@@ -240,26 +244,26 @@ no_swap:
     jmp inner_loop
 
 next_outer:
-    inc r9                  ; Incrementar i
-    mov r10, 0              ; Reiniciar el índice j para el siguiente pase
-    jmp outer_loop          ; Continuar con el siguiente ciclo
+    inc r9
+    jmp outer_loop
 
+;--------------------Imprimir la lista ordenada-------------------
 print_sorted_list:
-    ; Imprimir cada línea ordenada
     mov rsi, 0   ; Índice = 0
+
 print_loop:
     cmp rsi, r8
-    jge terminar
+    jge terminar          ; Si se han impreso todas las líneas, salir
+
+    ; Obtener el puntero a la línea ordenada e imprimirla
     mov rax, [arreglo_dir_datos + rsi*8]
-    print rax
+    print rax             ; Imprime la línea
+    print nl              ; Imprime un salto de línea
+
     inc rsi
     jmp print_loop
 
 terminar:
-	print mensaje
-	print arreglo_dir_datos
-	print mensaje
-	
     print msg_final_programa    
     mov rax, SYS_EXIT
     xor rdi, rdi
