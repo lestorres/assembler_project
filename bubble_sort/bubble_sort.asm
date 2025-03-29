@@ -36,6 +36,7 @@ section .bss
     ; array de los punteros a cada línea (8 bytes por puntero)
     arreglo_dir_datos resq 120 
     contador_bytes    resw 1          ; Almacena cantidad de bytes leídos
+    contador_lineas   resb 1
 
     ; Variables para estructurar los datos:
 
@@ -150,10 +151,11 @@ ordenamiento_datos:
 
 ;------------------estructurar_datos-------------------------------
 estructurar_datos:
+    mov byte [contador_lineas], 0
     ;Separar las líneas y almacenar sus direcciones en arreglo_dir_datos --
     mov rsi, leer_texto_datos       ; Puntero al inicio del buffer
     lea rdi, [arreglo_dir_datos]    ; Array para guardar punteros
-    xor rcx, rcx                    ; Contador de líneas = 0
+    movzx rcx, byte[contador_lineas]  ; Contador de líneas = 0
 
     ; Calcular la dirección final del buffer usando 'contador_bytes'
     mov rdx, leer_texto_datos       ; rdx = inicio del buffer
@@ -167,6 +169,7 @@ separa_lineas_loop:
     ; Guardar la dirección de inicio de la línea actual
     mov qword [arreglo_dir_datos + rcx*8], rsi
     inc rcx
+    inc byte[contador_lineas]
 
     ; Buscar el final de la línea o retorno de carro
 encontrar_linea:
@@ -204,81 +207,89 @@ comprobar_orden:
 
     pop rax ; liberar el rax del stack
 
-;Sino es "a" o "alfabetico" se ordena como numerico por notas
+;Sino es "a" o "alfabetico" se ordena como numerico por notas ->
 
-bubble_sort_numerico:
-;--------------Inicio del bubblesort numerico--------------
 
-    mov r8, rcx     ; Numero total líneas en r8
-    mov r9, 0       ; indice i
+;--------------------Inicio del Selection Sort Numérico--------------------
+selection_sort_numerico:
+    ; Cargar el número total de líneas desde contador_lineas en R8
+    movzx r8, byte [contador_lineas] ; r8 = total de líneas
+    mov r9, 0                          ; i = 0 (índice del elemento a llenar)
 
-outer_loop:
+sel_outer: ; bucle externo
     cmp r9, r8
-    jge print_sorted_notas_lista
-    mov r10, 0      ; indice j
+    jge print_sorted_notas_lista       ; Si i >= total, terminar
+    mov r10, r9                        ; min_index = i
+    mov r11, r9                        ; j = i
 
-inner_loop:
-    mov r11, r8
-    dec r11
-    cmp r10, r11
-    jge next_outer
+sel_inner: ;bucle interno
+    inc r11                            ; j = j + 1
+    cmp r11, r8
+    jge sel_swap                       ; Si j >= total, saltar a swap
+    ; Comparar la nota en posición j con la nota en posición min_index
 
-    ; Cargar punteros de dos líneas consecutivas
-    mov rax, [arreglo_dir_datos + r10*8]      ; Linea actual
-    mov rbx, [arreglo_dir_datos + (r10+1)*8]    ; línea que sigue
-
-    ; Extraer nota de la linea actual
-    push r8       ; Preservar r8
-    push rcx      ; Preservar contador de líneas
-
+    ; Extraer nota del elemento en j:
+    mov rax, [arreglo_dir_datos + r11*8]
+    push r8
+    push rcx
     mov r12, rax
-    call find_end_of_string    ; r12 apunta al fin de la cadena
+    call find_end_of_string           ; R12 apunta al nulo
     mov r13, r12
-    sub r13, 3                 ; R13 apunta a los 3 dígitos de la nota
-    call ascii_to_int          ; Resultado en r15 (nota actual)
-    mov r14, r15               ; Guardar nota actual
-
-    ; Extraer nota de la siguiente línea
-    mov r12, rbx
-    call find_end_of_string
-    mov r13, r12
-    sub r13, 3
-    call ascii_to_int          ; Resultado en r15 (nota siguiente)
-
-    ; Comparar notas (orden ascendente)
-    cmp r14, r15
-    jle no_swap
-
-    ; Intercambiar punteros si la nota actual es mayor que la siguiente
-    mov rdx, [arreglo_dir_datos + r10*8]
-    mov [arreglo_dir_datos + r10*8], rbx
-    mov [arreglo_dir_datos + (r10+1)*8], rdx
-
-no_swap:
-    pop rcx ;regresar del stack
+    sub r13, 3                        ; R13 apunta a los 3 dígitos de la nota
+    call ascii_to_int                 ; Resultado en r15: nota_j
+    mov r14, r15                      ; Guardar nota_j en r14
+    pop rcx
     pop r8
-    inc r10
-    jmp inner_loop
 
-next_outer:
-    inc r9
-    jmp outer_loop
+    ; Extraer nota del elemento en min_index (r10):
+    mov rax, [arreglo_dir_datos + r10*8]
+    push r8
+    push rcx
+    mov r12, rax
+    call find_end_of_string           ; R12 apunta al nulo
+    mov r13, r12
+    sub r13, 3                        ; R13 apunta a los 3 dígitos de la nota
+    call ascii_to_int                 ; Resultado en r15: nota_min
+    mov r15, r15                      ; nota_min en r15 
+    pop rcx
+    pop r8
 
-;--------------------Imprimir la lista ordenada-------------------
+    cmp r14, r15
+    jl update_min_index              ; Si nota_j < nota_min, actualizar min_index
+    jmp sel_inner
+
+update_min_index:
+    mov r10, r11                     ; min_index = j
+    jmp sel_inner
+
+sel_swap:
+    ; Si el mínimo encontrado no está en la posición i, intercambiar
+    cmp r9, r10
+    je no_swap_sel
+    mov rax, [arreglo_dir_datos + r9*8]
+    mov rbx, [arreglo_dir_datos + r10*8]
+    mov [arreglo_dir_datos + r9*8], rbx
+    mov [arreglo_dir_datos + r10*8], rax
+
+no_swap_sel:
+    inc r9                           ; i = i + 1
+    jmp sel_outer
+
+;--------------------Imprimir la Lista Ordenada Numéricamente--------------------
 print_sorted_notas_lista:
-    mov rsi, 0   ; Índice = 0
+    mov r10, 0                       ; Índice para recorrer el arreglo
+    movzx r8, byte [contador_lineas] ; r8 = total de líneas
 
-print_loop:
-    cmp rsi, r8
-    jge fin_n          ; Si se han impreso todas las líneas, salir
+print_loop_num:
+    cmp r10, r8
+    je fin_n
+   
+    mov rax,    [arreglo_dir_datos + (r10)*8]
+    print rax   ; Imprime la línea completa
+    print nl
+    inc r10
 
-    ; Obtener el puntero a la línea ordenada e imprimirla
-    mov rax, [arreglo_dir_datos + rsi*8]
-    print rax             ; Imprime la línea
-    print nl              ; Imprime un salto de línea
-
-    inc rsi
-    jmp print_loop
+    jmp print_loop_num
 
 fin_n:
     jmp terminar   
@@ -357,6 +368,7 @@ print_sorted_list_a:
 fin_a:
     jmp terminar    
 
+
 ;--------------final del programa---------------------------
 terminar:
     print msg_final_programa    
@@ -381,7 +393,7 @@ find_end_of_string:
 bucle_busca_final:
 ;leer hasta encontrar el null de la linea
     cmp byte [r12], 0
-    je end_find
+    je encontro_final_linea
     inc r12
     jmp bucle_busca_final
 encontro_final_linea:
