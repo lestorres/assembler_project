@@ -1,11 +1,11 @@
 Luis Sanchez Gomez nota: 100
 Maria Fernandez Perez nota: 78
 Javier Martin Ruiz nota: 85
-Laura Garcia Lopez nota: 92
+Aura Garcia Lopez nota: 92
 Pedro Rodriguez Diaz nota: 64
-Ana Gomez Torres nota: 40
+Jessica Gomez Torres nota: 40
 Carlos Perez Jimenez nota: 79
-Patricia Romero Garcia nota: 82
+Sofia Romero Garcia nota: 82
 Marta Diaz Fernandez nota: 95
 Jose Martinez Lopez nota: 62
 

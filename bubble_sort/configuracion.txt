@@ -1,4 +1,4 @@
-Nota de aprobación: [070]
+Nota de Aprobación: [070]
 Nota de Reposición: [060]
 Tamaño de los grupos de notas: [005]
 Escala del gráfico: [100]
