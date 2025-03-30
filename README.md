@@ -1,6 +1,6 @@
 ## Organización de Registros x86_64  
 
-| **64-bit (RAX)** | **32-bit (EAX)** | **16-bit (AX)** | **8-bit alto (AH)** | **8-bit bajo (AL)** | **Nombre**            | **Propósito**                                |
+| **64-bit** | **32-bit** | **16-bit** | **8-bit alto** | **8-bit bajo** | **Nombre**            | **Propósito**                                |
 |------------------|------------------|-----------------|----------------------|----------------------|-----------------------|----------------------------------------------|
 | RAX              | EAX              | AX              | AH                   | AL                   | Accumulator reg.      | Operaciones aritméticas                      |
 | RCX              | ECX              | CX              | CH                   | CL                   | Counter reg.          | Contador                                     |
