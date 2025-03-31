@@ -1,18 +1,17 @@
 ; Recuperar datos, ordenarlos, listarlos y graficarlos
 ; Lesmes Torres Gonzalez
 
-;--------------------------------------------------------------------
+;-----------------------------------
 ; Sección de paquetes
 %include "Linux64.inc"    ; Operaciones de impresión y cierre de archivo 
 %include "syscalls.inc"   ; Compilación de llamadas al sistema 
 
-;----------------------------------------------------------------------
 ; Sección de datos inicializados
 section .data
     archivo_config db "configuracion.txt", 0
     archivo_datos  db "datos.txt", 0
 
-; Mensajes del sistema		
+    ; Mensajes del sistema		
     msg_inicio_programa      db "---Programa Iniciado---", 0xA, 0
     msg_config_open          db "---Inicio de la configuración---", 0xA, 0
     msg_lista_des_open       db "---Inicio de la lista desordenada---", 0xA, 0
@@ -22,14 +21,12 @@ section .data
 
     mensaje                  db "             Imprimiendo...", 0xA, 0
     nl db 0xA, 0  ; Salto de línea para ordenar
+    espacio db " " ,0      ; espacio
 
 ; Varibles definidas para histograma
 
     msg_estudiantes  db "Numero de estudiantes", 0xA , 0
     msg_notas db "--> Notas", 0xA, 0
-
-
-
 
 ; Códigos ANSI para colores de letras "x"
     color_verde   db 0x1b, "[32m", 0
@@ -37,29 +34,22 @@ section .data
     color_rojo    db 0x1b, "[31m", 0
     color_reset   db 0x1b, "[37m", 0
 
-
-
-
-
-;-------------------------------------------------------------------
 ; Sección de datos no inicializados
 section .bss
     leer_texto_config resb 154       ; leer la configuracion configuracion.txt   
     leer_texto_datos  resb 2048       ; Leer datos para datos.txt   
 
-; Variables de recuperación de configuración
+    ; Variables de recuperación de configuración
     nota_apro resb 3
     nota_repo resb 3
     tam_grupo resb 3
     escala    resb 3
     orden     resb 1
 
-
-;Variables de recuperación de datos
-
-    arreglo_dir_datos resq 120  ; array de los punteros para datos ordenados  
-    contador_bytes    resw 1     ; Almacena cantidad de bytes leídos
-    contador_lineas   resb 1     ;CONTADOR DE LINEAS
+    ; array de los punteros a cada línea (8 bytes por puntero)
+    arreglo_dir_datos resq 120 
+    contador_bytes    resw 1          ; Almacena cantidad de bytes leídos
+    contador_lineas   resb 1
 
 ; Variables de histograma
     int_nota_apro resq 1
@@ -67,12 +57,6 @@ section .bss
     int_tam_grupo resq 1
     int_escala    resq 1
 
-    arreglo_notas resd 120  ; notas convertidos a enteros de 4 bytes
-
-    num_de_grupos resd 1    ; Numero de grupos
-    arreglo_contadores resd 21   ; arreglo de contadores eje x (tam_grupo lo define)
-
-  
 ; Sección de código
 section .text
     global _start
@@ -326,7 +310,7 @@ print_loop_num:
     jmp print_loop_num
 
 fin_n:
-    jmp histogram   
+    jmp histograma   
 ;---------------------------------------------------------------------------
 
 
@@ -400,13 +384,17 @@ print_sorted_list_a:
     jmp fin_a
 
 fin_a:
-    jmp histogram    
+    jmp histograma   
+
+
+
 
 
 ;-----------------------histograma--------------------------
-histogram:
+histograma:
     print nl
     print msg_histogram
+    print nl
 
 convertir_config_ints:
 
@@ -430,208 +418,49 @@ mov r13, escala
 call ascii_to_int
 mov [int_escala], r15
 
-extractor_de_notas:
-;---------------------------------------------------------
-; Extraer notas y convertirlas a enteros
-; A este punto tengo:
-; + Las líneas de datos almacenadas en arreglo_dir_datos
-; + Cada línea termina con un '\0' o null 
-; + La nota ocupa los ultimos 3 caracteres
-; + El contador de líneas está en 'contador_lineas'
-;----------------------------------------------------------
+;-------impresion del marco del histograma ----------
+print msg_estudiantes
+calculo_ejes:
+    ; Inicializamos las variables
+    mov r8, [int_escala]      ; r8 = escala
+    mov r9, [int_tam_grupo]   ; r9 = tam_grupo
 
-extraer_notas:
-    ; r8 = total de líneas
-    movzx r8, byte [contador_lineas]  ;mover con extension de ceros
-    xor rdi, rdi               ; Índice i = 0, va a ser el contador
+    ; --- Imprimir las divisiones del eje Y ---
+    ; Empezamos desde 100 y restamos la escala en cada paso hasta llegar a 0
+    mov r10, 100              ; r10 = 100 (inicio del eje Y)
 
-extraer_notas_loop:
-    cmp rdi, r8                ; ¿i >= total de líneas?
-    jge fin_extraer_notas
+y_loop:
+    ; Imprimir valor actual en el eje Y
+    mov rsi, r10              ; rsi = valor actual para eje Y
+    printVal rsi              ; Imprime el valor de r10
+    sub r10, r8               ; Restar la escala (r8)
+    cmp r10, 0                ; Comparar si hemos llegado a 0
+    jg y_loop                 ; Si r10 > 0, continuar en el bucle
 
-    mov rax, [arreglo_dir_datos + rdi*8] ; dirección de la línea actual
+    ; --- Imprimir salto de línea para separar ejes ---
+    ;print nl
 
-    ; buscar el final de linea
-    mov r12, rax
-    call find_end_of_string    ; Al regresar, r12 apunta al carácter nulo
+    ; --- Imprimir las divisiones del eje X ---
+    ; Comenzamos desde 0 y sumamos tam_grupo hasta llegar a 100
+    mov r10, 0              ; r10 = 0 (inicio del eje X)
 
-    ; Retroceder 3 bytes para posicionarse en los dígitos de la nota
-    mov r13, r12
-    sub r13, 3               ; r13 ahora apunta a los 3 dígitos
+x_loop:
+    ;Imprimir el valor actual de r10 en la misma línea
+    printValInline r10
 
-    ; Llamar a ascii_to_int: el entero resultante se obtiene en r15
-    call ascii_to_int
+    add r10, r9         ; Sumar el valor de r9 al número en r10
 
-    ; Guardar la nota convertida en el array de notas
-    ; Cada nota es un entero (4 bytes), así que usamos rdi*4 como offset.
-    mov [arreglo_notas + rdi*4], r15
+    ; Comparar si r11 > 100
+    cmp r10, 100
+    jg x_end            ; Si r10 > 100, salir del bucle
 
-    inc rdi                  ; Incrementar el índice
-    jmp extraer_notas_loop
+    ; Continuar en el bucle
+    jmp x_loop
 
-fin_extraer_notas:
-	printVal arreglo_notas
+x_end:
 
 
-
-
-definir_grupos_notas:
-
-definir_grupos:
-    mov ebx, [int_tam_grupo]  ;  Cargar el tamaño del grupo EBX = tam_grupo
-
-    ; Dividir 100 entre tam_grupo.
-    ; EAX contendrá el cociente, EDX el residuo.
-    mov eax, 100
-    xor edx, edx
-    div ebx                   ; EAX = 100 / tam_grupo, EDX = residuo
-
-    ; Si hay residuo, se requiere un grupo adicional.
-    cmp edx, 0
-    je grupos_calculados
-    inc eax                   ; EAX = número total de grupos
-
-grupos_calculados:
-    mov [num_de_grupos], eax     ; Guardar el número total de grupos
-
-
-; Suponiendo que en EBX se encuentre tam_grupo (ya cargado desde int_tam_grupo)
-; y que en [num_de_grupos] esté el total de grupos.
-definir_rangos:
-    ; Cargar tam_grupo en EBX
-    mov ebx, [int_tam_grupo]
-    
-    ; Cargar número total de grupos en ECX
-    mov ecx, [num_de_grupos]   ; ECX = total de grupos
-    xor edi, edi            ; EDI = índice i (inicia en 0)
-
-rango_loop:
-    cmp edi, ecx
-    jge fin_rangos          ; Si i >= número de grupos, salimos
-
-    ; Calcular: upper = 100 - i*tam_grupo
-    ; Usamos EDI en EAX
-    mov eax, edi
-    imul eax, ebx           ; eax = i * tam_grupo
-    mov edx, 100
-    sub edx, eax            ; edx = 100 - (i * tam_grupo)
-    ; Guardamos el valor superior en, por ejemplo, [temp_upper] (variable temporal en .bss o en registro)
-    ; Para este ejemplo, usaremos EDX directamente.
-    
-    ; Calcular: lower = upper - tam_grupo + 1
-    mov eax, edx            ; eax = upper
-    sub eax, ebx            ; eax = upper - tam_grupo
-    inc eax                 ; eax = upper - tam_grupo + 1
-
-    ; Si el valor lower es negativo, ajustarlo a 0
-    cmp eax, 0
-    jge sin_ajuste
-    mov eax, 0
-sin_ajuste:
-    ; En este punto:
-    ; EDX tiene el límite superior del grupo (upper)
-    ; EAX tiene el límite inferior del grupo (lower)
-    ; Aquí podrías, por ejemplo, imprimir el rango o guardarlo en alguna estructura.
-    ; Por ejemplo:
-    ; print "Grupo i: upper - lower"
-    ; (Utiliza tus rutinas de impresión para mostrar estos valores)
-    
-    ; Incrementar índice de grupo
-    inc edi
-    jmp rango_loop
-
-fin_rangos:
-    ; Aquí ya se han definido los rangos para cada grupo.
-
-printVal num_de_grupos
-
-distribucion_de_los_grupos_de_notas:
-;---------------------------------------------------------
-; Distribuir notas en grupos
-;---------------------------------------------------------
-distribuir_en_grupos:
-    ; Se asume que:
-    ; - [int_tam_grupo] contiene el tamaño del grupo (por ejemplo, 10).
-    ; - [num_groups] contiene el número total de grupos.
-    ; - El total de notas leídas está en 'contador_lineas'.
-    
-    ; Guardar en un registro el tam_grupo para usarlo en las divisiones
-    mov ebx, [int_tam_grupo]    ; EBX = tam_grupo
-
-    ; Obtener el total de notas leídas (contador_lineas)
-    movzx rcx, byte [contador_lineas]  ; RCX = total de notas
-
-    xor rdi, rdi              ; Índice i = 0
-
-distribuir_loop:
-    cmp rdi, rcx
-    jge fin_distribuir        ; Si i >= total de notas, terminar
-
-    ; Cargar la nota actual desde notas_array
-    mov eax, [notas_array + rdi*4]  ; EAX = nota actual
-
-    ; Calcular grupo: (100 - nota) / tam_grupo
-    mov edx, 0                ; Limpiar EDX antes de la división
-    mov edi, eax              ; Mover la nota a EDI para operar
-    ; Restar la nota de 100
-    mov eax, 100              ; EAX = 100
-    sub eax, edi              ; EAX = 100 - nota
-
-    ; Dividir entre tam_grupo (EBX)
-    xor edx, edx              ; Asegurarse de que EDX = 0
-    div ebx                   ; EAX = (100 - nota) / tam_grupo, residuo en EDX
-
-    ; Ahora EAX contiene el índice del grupo.
-    ; Opcional: Si deseas limitar el índice al número máximo de grupos, podrías comparar con [num_groups]
-    ; Aquí asumiremos que la fórmula es válida para todas las notas.
-    
-    ; Incrementar el contador del grupo correspondiente en array_contadores
-    ; Cada contador es un entero de 4 bytes
-    mov esi, [array_contadores + eax*4] ; Cargar el contador actual para ese grupo
-    inc esi                             ; Incrementar el contador
-    mov [array_contadores + eax*4], esi ; Guardar el nuevo valor
-
-    inc rdi                           ; Siguiente nota
-    jmp distribuir_loop
-
-fin_distribuir:
-    ; Al finalizar, array_contadores tendrá la cantidad de notas en cada grupo.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+print msg_notas
 
 ;--------------final del programa---------------------------
 terminar:
@@ -647,6 +476,11 @@ salida_error:
     syscall
 
 ;------------------Subrutinas auxiliares-------------------------------
+
+find_opening_of_string:
+; find_end_of_string:
+;   Entrada: r12 = puntero al inicio de la cadena.
+;   Salida: r12 = puntero al carácter nulo (fin de cadena).i
 
 find_end_of_string:
 

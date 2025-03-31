@@ -76,3 +76,56 @@ printSpace resb 8
     syscall
 %endmacro
 
+
+; ------------------------------------
+; Macro para imprimir un valor numérico en la misma línea
+; Uso: printValInline numero
+; Opcionalmente agrega un espacio al final (ASCII 32)
+; ------------------------------------
+%macro printValInline 1
+    mov rax, %1
+    ; Inicializa el buffer sin salto de línea.
+    ; digitSpace es el inicio del buffer y digitSpacePos es un puntero a la posición actual.
+    mov rcx, digitSpace
+    ; No se escribe 10 (salto de línea) en el buffer.
+    mov [digitSpacePos], rcx
+
+%%printRAXLoop:
+    ; Limpia rdx antes de la división
+    mov rdx, 0
+    mov rbx, 10
+    div rbx
+    push rax
+    ; Convierte el residuo a su carácter ASCII
+    add rdx, 48
+    ; Coloca el carácter en el buffer
+    mov rcx, [digitSpacePos]
+    mov [rcx], dl
+    inc rcx
+    mov [digitSpacePos], rcx
+    pop rax
+    cmp rax, 0
+    jne %%printRAXLoop
+
+    ; Opcional: agrega un espacio (ASCII 32) al final para separar números.
+    mov rcx, [digitSpacePos]
+    mov byte [rcx], 32  ; carácter espacio
+    inc rcx
+    mov [digitSpacePos], rcx
+
+%%printRAXLoop2:
+    ; Imprime el buffer en orden inverso para mostrar el número correctamente.
+    mov rcx, [digitSpacePos]
+    mov rax, 1          ; syscall: sys_write
+    mov rdi, 1          ; file descriptor: stdout
+    mov rsi, rcx
+    mov rdx, 1          ; imprimir 1 byte
+    syscall
+    ; Retrocede en el buffer
+    mov rcx, [digitSpacePos]
+    dec rcx
+    mov [digitSpacePos], rcx
+    cmp rcx, digitSpace
+    jge %%printRAXLoop2
+%endmacro
+

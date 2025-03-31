@@ -1,5 +1,5 @@
 Nota de Aprobación: [070]
 Nota de Reposición: [060]
-Tamaño de los grupos de notas: [005]
-Escala del gráfico: [100]
+Tamaño de los grupos de notas: [010]
+Escala del gráfico: [010]
 Ordenamiento: numerico
