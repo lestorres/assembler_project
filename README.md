@@ -9,12 +9,12 @@ Para el análisis y depuración del código, se empleó **GDB (GNU Debugger)**, 
 
 - Lectura y recuperación del contenido de archivos de texto.
 - Ordenamiento de datos utilizando los algoritmos **Bubblesort** y **Selection-sort**.
-- Bosquejo General de un histograma
+- Bosquejo General de un histograma.
 
 ## Organización de Archivos
 
 ### Directiorio: proyecto
-- En este directorio se encuentran todo el codigo fuente y las dependencias necesarias para la ejecución del proyecto
+- En este directorio se encuentran todo el codigo fuente y las dependencias necesarias para la ejecución del proyecto, su ejecución se realiza a partir del ejecutable proyecto.
 
 ### Directiorio: flujo_trabajo
 - En este directorio se encuentran todo el codigo fuente y las dependencia necesarias para la ejecución de distintas etapas en el desarrollo del proyecto, entre ellas: la lectura de los archivos, la impresión por pantalla, los ordenamientos, entre otros.
